@@ -1,5 +1,6 @@
 # cintel-05-cintel-SchroderJ-pixel
 Project 5
+
 Continuous Intelligence Dashboard
 This is a real-time temperature monitoring dashboard created using Shiny for Python. The application generates simulated temperature data and displays it with a live-updating graph, table, and timestamp.
 
