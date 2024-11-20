@@ -88,4 +88,3 @@ def display_plot():
     fig.add_trace(go.Scatter(x=timestamps, y=trend_line, mode='lines', name='Trend Line'))
     
     return fig  # This returns the figure directly for interactive display
-
