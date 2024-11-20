@@ -1,167 +1,60 @@
-from shiny.express import input, ui, render
-from shinywidgets import render_plotly
-import plotly.express as px
-from palmerpenguins import load_penguins
-from shiny import reactive
-import seaborn as sns
-import matplotlib.pyplot as plt
-import base64
-from io import BytesIO
+# Action 1: Import Items
+from shiny import reactive, render
+from shiny.express import ui
+import random
+from datetime import datetime
+from faicons import icon_svg
 
+# Action 2: Plan Our Reactive Content
+UPDATE_INTERVAL_SECS: int = 1 
 
-penguins_df = load_penguins()
+@reactive.calc()
+def reactive_calc_combined():
+    reactive.invalidate_later(UPDATE_INTERVAL_SECS)
+    temp_celsius = round(random.uniform(-18, -16), 1)
+    temp_fahrenheit = round((temp_celsius * 9 / 5) + 32, 1)  # Convert Celsius to Fahrenheit
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    latest_dictionary_entry = {"temp_celsius": temp_celsius, "temp_fahrenheit": temp_fahrenheit, "timestamp": timestamp}
+    return latest_dictionary_entry
 
-@reactive.calc
-def filtered_data():
-    selected_species = input.Selected_Species_List()
-    min_mass, max_mass = input.body_mass_range()
-    
-    
-    filtered_df = penguins_df[
-        (penguins_df["species"].isin(selected_species)) &
-        (penguins_df["body_mass_g"] >= min_mass) &
-        (penguins_df["body_mass_g"] <= max_mass)
-    ]
-    return filtered_df
+# Action 3: Define the UI Layout Page Options
+app_ui = ui.page_opts(
+    title="PyShiny Express: Live Data (Basic)",  # Page title displayed at the top
+    fillable=True  # This will make the UI fluid (use full width of the page)
+)
 
-
+# Action 4: Define the Shiny UI Layout - Sidebar
 with ui.sidebar(open="open"):
-    ui.h2("Sidebar")
-    
-    ui.input_selectize(
-        "selected_attribute",
-        "Penguin Metric",
-        ["bill_length_mm", "bill_depth_mm", "flipper_length_mm", "body_mass_g"],
-    )
-    ui.input_numeric("plotly_bin_count", "Number of Bins", 50)
-    ui.input_slider("seaborn_bin_count", "Seaborn Bins", 1, 50, 20)
-    
-    ui.input_checkbox_group(
-        "Selected_Species_List",
-        "Species Selection",
-        ["Adelie", "Gentoo", "Chinstrap"],
-        selected=["Adelie", "Gentoo", "Chinstrap"],
-        inline=False,
-    )
-    ui.input_slider(
-        "body_mass_range",
-        "Body Mass Range (g)",
-        min=penguins_df["body_mass_g"].min(),
-        max=penguins_df["body_mass_g"].max(),
-        value=(penguins_df["body_mass_g"].min(), penguins_df["body_mass_g"].max())
-    )
-    
-    ui.input_selectize(
-        "scatter_x_axis",
-        "Scatter Plot X-Axis",
-        ["bill_length_mm", "bill_depth_mm", "flipper_length_mm", "body_mass_g"],
-        selected="body_mass_g"
-    )
-    ui.input_selectize(
-        "scatter_y_axis",
-        "Scatter Plot Y-Axis",
-        ["bill_length_mm", "bill_depth_mm", "flipper_length_mm", "body_mass_g"],
-        selected="flipper_length_mm"
+    ui.h2("Antarctic Explorer", class_="text-center")  # Heading
+    ui.p(
+        "A demonstration of real-time temperature readings in Antarctica.",
+        class_="text-center",  # Centered text
     )
 
-    ui.hr()
-    ui.a(
-        "Github",
-        href="https://github.com/DarkwingDuff/cintel-02-data/tree/main",
-        target="_blank",
-    )
+# Action 5: Define the Shiny UI Layout - Main Section
+# Main content section where the real-time data will be displayed
 
-with ui.layout_columns():
-   
-    with ui.card(full_screen=True):
-        @render_plotly
-        def plot1():
-            filtered_df = filtered_data()
-            fig = px.histogram(
-                filtered_df,
-                x="bill_length_mm",
-                title="Histogram of Bill Length",
-                color_discrete_sequence=["orange"]
-            )
-            fig.update_traces(marker_line_color="black", marker_line_width=2)
-            return fig
+ui.h2("Current Temperature")
 
+@render.text
+def display_temp():
+    """Get the latest temperature and return it as a string."""
+    latest_dictionary_entry = reactive_calc_combined()
+    temp_celsius = latest_dictionary_entry['temp_celsius']
+    temp_fahrenheit = latest_dictionary_entry['temp_fahrenheit']
+    return f"{temp_celsius} C / {temp_fahrenheit} F"  # Display both Celsius and Fahrenheit
 
-    with ui.card(full_screen=True):
-        @render_plotly
-        def plot2():
-            selected_attribute = input.selected_attribute()
-            bin_count = input.plotly_bin_count()
-            filtered_df = filtered_data()
-            fig = px.histogram(
-                filtered_df,
-                x=selected_attribute,
-                nbins=bin_count,
-                title=f"Histogram of {selected_attribute.replace('_', ' ').title()}",
-                color_discrete_sequence=["black"]
-            )
-            fig.update_traces(marker_line_color="white", marker_line_width=2)
-            return fig
+ui.p("warmer than usual")
 
+icon_svg("sun")
 
-with ui.layout_columns():
-    with ui.card(full_screen=True):
-        ui.card_header("Plotly Scatterplot: Custom Axes")
+# Add a horizontal line for separation
+ui.hr()
 
-        @render_plotly
-        def scatter_plot():
-            filtered_df = filtered_data()
-            x_axis = input.scatter_x_axis()
-            y_axis = input.scatter_y_axis()
-            fig = px.scatter(
-                filtered_df,
-                x=x_axis,
-                y=y_axis,
-                color="species",
-                title=f"Scatter Plot: {x_axis.replace('_', ' ').title()} vs {y_axis.replace('_', ' ').title()}",
-                labels={x_axis: x_axis.replace('_', ' ').title(), y_axis: y_axis.replace('_', ' ').title()}
-            )
-            return fig
+ui.h2("Current Date and Time")
 
-
-    with ui.card(full_screen=True):
-        @render_plotly
-        def density_plot():
-            filtered_df = filtered_data()
-            fig = px.density_contour(
-                filtered_df,
-                x="bill_length_mm",
-                y="flipper_length_mm",
-                color="species",
-                title="Density Plot: Bill Length vs Flipper Length by Species",
-                labels={"bill_length_mm": "Bill Length (mm)", "flipper_length_mm": "Flipper Length (mm)"}
-            )
-            return fig
-
-
-with ui.layout_columns():
-    with ui.card(full_screen=True):
-        @render.data_frame
-        def data_table():
-            return render.DataTable(filtered_data(), selection_mode="row")
-
-    with ui.card(full_screen=True):
-        @render.data_frame
-        def data_grid():
-            return render.DataGrid(filtered_data(), selection_mode="row")
-
-
-with ui.layout_columns():
-    with ui.card(full_screen=True):
-        @render.plot(alt="Seaborn histogram of selected penguin metric.")
-        def seaborn_histogram():
-            selected_attribute = input.selected_attribute()
-            bin_count = input.seaborn_bin_count()
-            filtered_df = filtered_data()
-            histplot = sns.histplot(
-                filtered_df[selected_attribute].dropna(), bins=bin_count, kde=True
-            )
-            histplot.set_title(f"Seaborn Histogram of {selected_attribute.replace('_', ' ').title()}")
-            histplot.set_xlabel(selected_attribute.replace('_', ' ').title())
-            histplot.set_ylabel("Count")
-            return histplot
+@render.text
+def display_time():
+    """Get the latest timestamp and return it as a string."""
+    latest_dictionary_entry = reactive_calc_combined()
+    return f"{latest_dictionary_entry['timestamp']}"
